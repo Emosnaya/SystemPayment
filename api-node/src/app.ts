@@ -1,5 +1,6 @@
 import cors from "cors";
 import express from "express";
+import * as healthController from "./controllers/healthController";
 import { errorHandler, notFoundHandler } from "./middlewares/errorHandler";
 import routes from "./routes";
 
@@ -8,9 +9,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.get("/health", (_req, res) => {
-  res.status(200).json({ status: "ok" });
-});
+app.get("/health", healthController.healthCheck);
 
 app.use(routes);
 

@@ -29,6 +29,27 @@ La API nunca almacena el número completo de la tarjeta: solo titular, fecha de 
 
 Arquitectura por capas de la API: **Controllers → Services → Repositories → PostgreSQL**.
 
+### Flujo de una transacción de pago
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Cliente as Cliente HTTP
+    participant API as api_node (Express)
+    participant PY as payment_service (FastAPI)
+    participant DB as postgres_db
+
+    Cliente->>API: POST /payments {usuario_id, tarjeta_id, monto}
+    API->>API: Validar DTO (Zod)
+    API->>DB: SELECT usuario / tarjeta (deleted_at IS NULL)
+    DB-->>API: Filas activas
+    API->>PY: POST /process-payment {amount, card_id}
+    PY-->>API: {status: APPROVED|REJECTED, transaction_id}
+    API->>DB: INSERT INTO pagos (... , transaction_id, estado)
+    DB-->>API: Pago persistido
+    API-->>Cliente: 201 {id, estado, transaction_id, ...}
+```
+
 ---
 
 ## Requisitos
@@ -57,9 +78,9 @@ Esto construye e inicia los 3 servicios:
 
 | Servicio | Puerto | Descripción |
 |---|---|---|
-| `postgres_db` | `5432` | PostgreSQL 15; ejecuta `db/init.sql` al primer arranque |
-| `payment_service` | `8000` | Microservicio FastAPI |
-| `api_node` | `3000` | API REST Express |
+| `postgres_db` | `5432` | PostgreSQL 15; ejecuta `01_init.sql` + `02_seed.sql` al primer arranque; healthcheck con `pg_isready` |
+| `payment_service` | `8000` | Microservicio FastAPI; healthcheck `GET /health` vía `curl` |
+| `api_node` | `3000` | API REST Express; espera a que Postgres y el microservicio estén *healthy* |
 
 Comprueba que la API responde:
 
@@ -204,10 +225,25 @@ Base URL: `http://localhost:3000`
 
 ### `GET /health`
 
-Health check.
+Verifica que la API esté viva **y** que PostgreSQL responda a `SELECT 1`.
 
 ```bash
 curl http://localhost:3000/health
+```
+
+**Respuesta `200`:**
+
+```json
+{ "status": "healthy", "service": "api-node", "database": "up" }
+```
+
+**Respuesta `503`:** base de datos inaccesible.
+
+El microservicio Python expone su propio healthcheck:
+
+```bash
+curl http://localhost:8000/health
+# {"status":"healthy","service":"payment-processing-python"}
 ```
 
 ### `POST /users`
@@ -311,23 +347,25 @@ SystemPayment/
 │   ├── src/
 │   │   ├── __tests__/           # Jest + Supertest (users, payments)
 │   │   ├── config/              # DB Pool, env
-│   │   ├── controllers/
+│   │   ├── controllers/         # Incluye healthCheck con SELECT 1
 │   │   ├── services/            # Incluye llamada axios al microservicio
 │   │   ├── repositories/
 │   │   ├── schemas/             # Validaciones Zod
 │   │   ├── middlewares/         # errorHandler, validate
+│   │   ├── errors/              # AppError tipado
 │   │   └── routes/
 │   ├── jest.config.js
 │   ├── Dockerfile
 │   └── .env.example
 ├── payment-service-python/      # Microservicio FastAPI
-│   ├── tests/                   # pytest (process-payment)
+│   ├── tests/                   # pytest (process-payment + health)
 │   ├── main.py
 │   ├── requirements.txt
 │   ├── pytest.ini
 │   └── Dockerfile
 ├── db/
-│   └── init.sql                 # Esquema PostgreSQL
+│   ├── init.sql                 # Esquema (uuid-ossp, auditoría, índices)
+│   └── seed.sql                 # Usuario y tarjeta demo (ON CONFLICT DO NOTHING)
 ├── docker-compose.yml
 ├── Payment_System.postman_collection.json
 └── README.md
@@ -350,9 +388,21 @@ Las respuestas de error siguen el formato:
 ```json
 {
   "error": "mensaje",
+  "code": "VALIDATION_ERROR",
   "details": {}
 }
 ```
+
+Códigos habituales: `VALIDATION_ERROR`, `NOT_FOUND`, `CONFLICT`, `BAD_REQUEST`, `BAD_GATEWAY`, `INTERNAL_ERROR`.
+
+### Datos seed (Docker)
+
+Tras el primer `docker compose up`, la base incluye:
+
+| Recurso | ID | Detalle |
+|---|---|---|
+| Usuario | `550e8400-e29b-41d4-a716-446655440000` | `demo@sistempayment.com` |
+| Tarjeta | `6ba7b810-9dad-41d1-80b4-00c04fd430c8` | últimos 4: `4242` |
 
 ---
 

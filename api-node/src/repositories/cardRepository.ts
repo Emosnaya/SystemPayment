@@ -1,6 +1,11 @@
 import { query } from "../config/db";
 import type { Card } from "../types/models";
 
+const CARD_COLUMNS = `
+  id, usuario_id, titular, ultimos_cuatro, fecha_expiracion,
+  created_at, updated_at, deleted_at
+`;
+
 export async function createCard(input: {
   usuario_id: string;
   titular: string;
@@ -10,7 +15,7 @@ export async function createCard(input: {
   const { rows } = await query<Card>(
     `INSERT INTO tarjetas (usuario_id, titular, ultimos_cuatro, fecha_expiracion)
      VALUES ($1, $2, $3, $4::date)
-     RETURNING id, usuario_id, titular, ultimos_cuatro, fecha_expiracion, fecha_creacion`,
+     RETURNING ${CARD_COLUMNS}`,
     [input.usuario_id, input.titular, input.ultimos_cuatro, input.fecha_expiracion],
   );
 
@@ -23,9 +28,9 @@ export async function createCard(input: {
 
 export async function findCardById(id: string): Promise<Card | null> {
   const { rows } = await query<Card>(
-    `SELECT id, usuario_id, titular, ultimos_cuatro, fecha_expiracion, fecha_creacion
+    `SELECT ${CARD_COLUMNS}
      FROM tarjetas
-     WHERE id = $1`,
+     WHERE id = $1 AND deleted_at IS NULL`,
     [id],
   );
   return rows[0] ?? null;

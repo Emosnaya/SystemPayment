@@ -3,6 +3,14 @@ import app from "../app";
 import * as userRepository from "../repositories/userRepository";
 
 jest.mock("../repositories/userRepository");
+jest.mock("../config/db", () => ({
+  pool: {
+    query: jest.fn().mockResolvedValue({ rows: [{ "?column?": 1 }] }),
+    on: jest.fn(),
+    connect: jest.fn(),
+  },
+  query: jest.fn(),
+}));
 
 const mockedUserRepository = userRepository as jest.Mocked<typeof userRepository>;
 
@@ -13,10 +21,12 @@ describe("POST /users", () => {
 
   it("creates a user with valid DTO", async () => {
     const created = {
-      id: "11111111-1111-1111-1111-111111111111",
+      id: "550e8400-e29b-41d4-a716-446655440000",
       nombre: "Ana García",
       email: "ana.garcia@example.com",
-      fecha_creacion: new Date("2026-01-01T00:00:00.000Z"),
+      created_at: new Date("2026-01-01T00:00:00.000Z"),
+      updated_at: new Date("2026-01-01T00:00:00.000Z"),
+      deleted_at: null,
     };
 
     mockedUserRepository.findUserByEmail.mockResolvedValue(null);
@@ -45,7 +55,10 @@ describe("POST /users", () => {
     });
 
     expect(response.status).toBe(400);
-    expect(response.body).toMatchObject({ error: "Validation failed" });
+    expect(response.body).toMatchObject({
+      error: "Validation failed",
+      code: "VALIDATION_ERROR",
+    });
     expect(response.body.details).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ path: expect.arrayContaining(["nombre"]) }),
@@ -61,7 +74,10 @@ describe("POST /users", () => {
     });
 
     expect(response.status).toBe(400);
-    expect(response.body).toMatchObject({ error: "Validation failed" });
+    expect(response.body).toMatchObject({
+      error: "Validation failed",
+      code: "VALIDATION_ERROR",
+    });
     expect(response.body.details).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ path: expect.arrayContaining(["email"]) }),
@@ -75,15 +91,18 @@ describe("POST /users", () => {
 
     expect(response.status).toBe(400);
     expect(response.body.error).toBe("Validation failed");
+    expect(response.body.code).toBe("VALIDATION_ERROR");
     expect(mockedUserRepository.createUser).not.toHaveBeenCalled();
   });
 
   it("returns 409 when email is already registered", async () => {
     mockedUserRepository.findUserByEmail.mockResolvedValue({
-      id: "11111111-1111-1111-1111-111111111111",
+      id: "550e8400-e29b-41d4-a716-446655440000",
       nombre: "Existing",
       email: "ana.garcia@example.com",
-      fecha_creacion: new Date(),
+      created_at: new Date(),
+      updated_at: new Date(),
+      deleted_at: null,
     });
 
     const response = await request(app).post("/users").send({
@@ -92,7 +111,10 @@ describe("POST /users", () => {
     });
 
     expect(response.status).toBe(409);
-    expect(response.body.error).toBe("Email already registered");
+    expect(response.body).toMatchObject({
+      error: "Email already registered",
+      code: "CONFLICT",
+    });
     expect(mockedUserRepository.createUser).not.toHaveBeenCalled();
   });
 });

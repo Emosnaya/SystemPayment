@@ -3,7 +3,15 @@ import { DatabaseError } from "pg";
 import { AppError } from "../errors/AppError";
 
 export function notFoundHandler(_req: Request, _res: Response, next: NextFunction): void {
-  next(new AppError(404, "Route not found"));
+  next(new AppError(404, "Route not found", { code: "NOT_FOUND" }));
+}
+
+function sendError(
+  res: Response,
+  statusCode: number,
+  payload: { error: string; code: string; details?: unknown },
+): void {
+  res.status(statusCode).json(payload);
 }
 
 export function errorHandler(
@@ -13,27 +21,37 @@ export function errorHandler(
   _next: NextFunction,
 ): void {
   if (err instanceof AppError) {
-    res.status(err.statusCode).json({
-      error: err.message,
-      ...(err.details !== undefined ? { details: err.details } : {}),
+    sendError(res, err.statusCode, err.toJSON() as {
+      error: string;
+      code: string;
+      details?: unknown;
     });
     return;
   }
 
   if (err instanceof DatabaseError) {
     if (err.code === "23505") {
-      res.status(409).json({ error: "Resource already exists" });
+      sendError(res, 409, {
+        error: "Resource already exists",
+        code: "CONFLICT",
+        details: { constraint: err.constraint },
+      });
       return;
     }
     if (err.code === "23503") {
-      res.status(400).json({ error: "Referenced resource does not exist" });
+      sendError(res, 400, {
+        error: "Referenced resource does not exist",
+        code: "BAD_REQUEST",
+        details: { constraint: err.constraint },
+      });
       return;
     }
   }
 
   console.error("Unhandled error:", err);
 
-  res.status(500).json({
+  sendError(res, 500, {
     error: "Internal server error",
+    code: "INTERNAL_ERROR",
   });
 }

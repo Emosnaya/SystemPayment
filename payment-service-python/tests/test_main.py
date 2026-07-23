@@ -21,3 +21,13 @@ def test_process_payment_returns_200_and_valid_status() -> None:
     body = response.json()
     assert body["status"] in ("APPROVED", "REJECTED")
     assert "transaction_id" in body
+
+
+def test_health_returns_healthy() -> None:
+    response = client.get("/health")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "healthy",
+        "service": "payment-processing-python",
+    }

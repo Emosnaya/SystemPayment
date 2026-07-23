@@ -15,14 +15,18 @@ export function normalizeExpirationDate(value: string): string {
 
   const match = value.match(/^(\d{2})\/(\d{2}|\d{4})$/);
   if (!match) {
-    throw new AppError(400, "Invalid fecha_expiracion format");
+    throw new AppError(400, "Invalid fecha_expiracion format", {
+      code: "VALIDATION_ERROR",
+    });
   }
 
   const month = Number(match[1]);
   let year = Number(match[2]);
 
   if (month < 1 || month > 12) {
-    throw new AppError(400, "Invalid expiration month");
+    throw new AppError(400, "Invalid expiration month", {
+      code: "VALIDATION_ERROR",
+    });
   }
 
   if (year < 100) {
@@ -42,7 +46,7 @@ export function extractLastFour(cardNumber: string): string {
 export async function createCard(input: CreateCardInput): Promise<Card> {
   const user = await userRepository.findUserById(input.usuario_id);
   if (!user) {
-    throw new AppError(404, "User not found");
+    throw new AppError(404, "User not found", { code: "NOT_FOUND" });
   }
 
   return cardRepository.createCard({

@@ -9,6 +9,14 @@ jest.mock("axios");
 jest.mock("../repositories/userRepository");
 jest.mock("../repositories/cardRepository");
 jest.mock("../repositories/paymentRepository");
+jest.mock("../config/db", () => ({
+  pool: {
+    query: jest.fn().mockResolvedValue({ rows: [{ "?column?": 1 }] }),
+    on: jest.fn(),
+    connect: jest.fn(),
+  },
+  query: jest.fn(),
+}));
 
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 const mockedUserRepository = userRepository as jest.Mocked<typeof userRepository>;
@@ -25,7 +33,9 @@ describe("POST /payments", () => {
       id: userId,
       nombre: "Ana García",
       email: "ana.garcia@example.com",
-      fecha_creacion: new Date(),
+      created_at: new Date(),
+      updated_at: new Date(),
+      deleted_at: null,
     });
 
     mockedCardRepository.findCardById.mockResolvedValue({
@@ -34,7 +44,9 @@ describe("POST /payments", () => {
       titular: "Ana García",
       ultimos_cuatro: "1111",
       fecha_expiracion: new Date("2028-12-31"),
-      fecha_creacion: new Date(),
+      created_at: new Date(),
+      updated_at: new Date(),
+      deleted_at: null,
     });
   });
 
@@ -56,7 +68,11 @@ describe("POST /payments", () => {
       tarjeta_id: cardId,
       monto: "150.75",
       estado: "APPROVED",
+      transaction_id: "tx-approved-001",
       fecha_pago: new Date("2026-01-01T00:00:00.000Z"),
+      created_at: new Date("2026-01-01T00:00:00.000Z"),
+      updated_at: new Date("2026-01-01T00:00:00.000Z"),
+      deleted_at: null,
     });
 
     const response = await request(app).post("/payments").send({
@@ -82,6 +98,7 @@ describe("POST /payments", () => {
       tarjeta_id: cardId,
       monto: 150.75,
       estado: "APPROVED",
+      transaction_id: "tx-approved-001",
     });
   });
 
@@ -99,7 +116,11 @@ describe("POST /payments", () => {
       tarjeta_id: cardId,
       monto: "99.00",
       estado: "REJECTED",
+      transaction_id: "tx-rejected-001",
       fecha_pago: new Date("2026-01-01T00:00:00.000Z"),
+      created_at: new Date("2026-01-01T00:00:00.000Z"),
+      updated_at: new Date("2026-01-01T00:00:00.000Z"),
+      deleted_at: null,
     });
 
     const response = await request(app).post("/payments").send({
@@ -118,6 +139,7 @@ describe("POST /payments", () => {
       tarjeta_id: cardId,
       monto: 99,
       estado: "REJECTED",
+      transaction_id: "tx-rejected-001",
     });
   });
 
@@ -129,7 +151,10 @@ describe("POST /payments", () => {
     });
 
     expect(response.status).toBe(400);
-    expect(response.body.error).toBe("Validation failed");
+    expect(response.body).toMatchObject({
+      error: "Validation failed",
+      code: "VALIDATION_ERROR",
+    });
     expect(mockedAxios.post).not.toHaveBeenCalled();
     expect(mockedPaymentRepository.createPayment).not.toHaveBeenCalled();
   });

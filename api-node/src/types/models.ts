@@ -2,7 +2,9 @@ export interface User {
   id: string;
   nombre: string;
   email: string;
-  fecha_creacion: Date;
+  created_at: Date;
+  updated_at: Date;
+  deleted_at: Date | null;
 }
 
 export interface Card {
@@ -11,7 +13,9 @@ export interface Card {
   titular: string;
   ultimos_cuatro: string;
   fecha_expiracion: Date;
-  fecha_creacion: Date;
+  created_at: Date;
+  updated_at: Date;
+  deleted_at: Date | null;
 }
 
 export type PaymentStatus = "APPROVED" | "REJECTED";
@@ -22,5 +26,9 @@ export interface Payment {
   tarjeta_id: string;
   monto: string;
   estado: PaymentStatus;
+  transaction_id: string | null;
   fecha_pago: Date;
+  created_at: Date;
+  updated_at: Date;
+  deleted_at: Date | null;
 }

@@ -27,6 +27,20 @@ class ProcessPaymentResponse(BaseModel):
     transaction_id: str
 
 
+class HealthResponse(BaseModel):
+    status: Literal["healthy"]
+    service: Literal["payment-processing-python"]
+
+
+@app.get("/health", response_model=HealthResponse)
+def health() -> HealthResponse:
+    """Healthcheck para orquestadores (Docker Compose, k8s, etc.)."""
+    return HealthResponse(
+        status="healthy",
+        service="payment-processing-python",
+    )
+
+
 @app.post("/process-payment", response_model=ProcessPaymentResponse)
 def process_payment(payload: ProcessPaymentRequest) -> ProcessPaymentResponse:
     """Aprueba el pago con 80% de probabilidad; lo rechaza con 20%."""

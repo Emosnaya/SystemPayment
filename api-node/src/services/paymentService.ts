@@ -30,7 +30,9 @@ export async function processPaymentWithMicroservice(
     );
 
     if (data.status !== "APPROVED" && data.status !== "REJECTED") {
-      throw new AppError(502, "Invalid response from payment service");
+      throw new AppError(502, "Invalid response from payment service", {
+        code: "BAD_GATEWAY",
+      });
     }
 
     return data;
@@ -40,32 +42,31 @@ export async function processPaymentWithMicroservice(
     }
 
     if (axios.isAxiosError(error)) {
-      throw new AppError(
-        502,
-        "Payment service unavailable",
-        error.response?.data ?? error.message,
-      );
+      throw new AppError(502, "Payment service unavailable", {
+        code: "BAD_GATEWAY",
+        details: error.response?.data ?? error.message,
+      });
     }
 
     throw error;
   }
 }
 
-export async function createPayment(input: CreatePaymentInput): Promise<Payment & {
-  transaction_id: string;
-}> {
+export async function createPayment(input: CreatePaymentInput): Promise<Payment> {
   const user = await userRepository.findUserById(input.usuario_id);
   if (!user) {
-    throw new AppError(404, "User not found");
+    throw new AppError(404, "User not found", { code: "NOT_FOUND" });
   }
 
   const card = await cardRepository.findCardById(input.tarjeta_id);
   if (!card) {
-    throw new AppError(404, "Card not found");
+    throw new AppError(404, "Card not found", { code: "NOT_FOUND" });
   }
 
   if (card.usuario_id !== input.usuario_id) {
-    throw new AppError(400, "Card does not belong to the specified user");
+    throw new AppError(400, "Card does not belong to the specified user", {
+      code: "BAD_REQUEST",
+    });
   }
 
   const result = await processPaymentWithMicroservice(
@@ -73,23 +74,19 @@ export async function createPayment(input: CreatePaymentInput): Promise<Payment 
     input.tarjeta_id,
   );
 
-  const payment = await paymentRepository.createPayment({
+  return paymentRepository.createPayment({
     usuario_id: input.usuario_id,
     tarjeta_id: input.tarjeta_id,
     monto: input.monto,
     estado: result.status,
-  });
-
-  return {
-    ...payment,
     transaction_id: result.transaction_id,
-  };
+  });
 }
 
 export async function getPaymentsByUserId(userId: string): Promise<Payment[]> {
   const user = await userRepository.findUserById(userId);
   if (!user) {
-    throw new AppError(404, "User not found");
+    throw new AppError(404, "User not found", { code: "NOT_FOUND" });
   }
 
   return paymentRepository.findPaymentsByUserId(userId);

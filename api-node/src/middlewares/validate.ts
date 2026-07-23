@@ -14,7 +14,10 @@ export function validate(schema: ZodType, target: RequestTarget = "body") {
     } catch (error) {
       if (error instanceof ZodError) {
         next(
-          new AppError(400, "Validation failed", error.issues),
+          new AppError(400, "Validation failed", {
+            code: "VALIDATION_ERROR",
+            details: error.issues,
+          }),
         );
         return;
       }
