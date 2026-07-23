@@ -1,3 +1,4 @@
+![CI Pipeline](https://github.com/TU_USUARIO/TU_REPOSITO/actions/workflows/ci.yml/badge.svg)
 # SystemPayment
 
 Sistema de pagos en arquitectura de monorepo: API REST en **Node.js/TypeScript (Express)**, microservicio de procesamiento en **Python (FastAPI)** y base de datos **PostgreSQL**.
