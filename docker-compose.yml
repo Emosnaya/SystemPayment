@@ -1,0 +1,60 @@
+services:
+  postgres_db:
+    image: postgres:15-alpine
+    container_name: systempayment_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: sistempayment
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    networks:
+      - systempayment_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d sistempayment"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  payment_service:
+    build:
+      context: ./payment-service-python
+      dockerfile: Dockerfile
+    container_name: systempayment_payment_service
+    ports:
+      - "8000:8000"
+    networks:
+      - systempayment_network
+    restart: unless-stopped
+
+  api_node:
+    build:
+      context: ./api-node
+      dockerfile: Dockerfile
+    container_name: systempayment_api_node
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: "3000"
+      DATABASE_URL: postgresql://postgres:postgres@postgres_db:5432/sistempayment
+      PAYMENT_SERVICE_URL: http://payment_service:8000
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+      payment_service:
+        condition: service_started
+    networks:
+      - systempayment_network
+    restart: unless-stopped
+
+networks:
+  systempayment_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
