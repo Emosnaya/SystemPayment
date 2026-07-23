@@ -1,0 +1,188 @@
+{
+  "info": {
+    "_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "name": "Payment System",
+    "description": "Colección para probar la API REST de SystemPayment.\n\nFlujo sugerido:\n1. Create User\n2. Register Card (usa `userId` guardado automáticamente)\n3. Create Payment (usa `userId` y `cardId`)\n4. Get User Payments\n\nVariables de colección:\n- `baseUrl`: URL base de la API (default http://localhost:3000)\n- `userId`: UUID del usuario (se rellena al crear usuario)\n- `cardId`: UUID de la tarjeta (se rellena al registrar tarjeta)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "cardId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Verifica que la API esté en funcionamiento."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Create User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const data = pm.response.json();",
+                  "  if (data.id) {",
+                  "    pm.collectionVariables.set('userId', data.id);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Ana García\",\n  \"email\": \"ana.garcia@example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["users"]
+            },
+            "description": "Crea un usuario.\n\nBody:\n- `nombre` (string, requerido)\n- `email` (string email único, requerido)\n\nGuarda automáticamente el `id` en la variable de colección `userId`."
+          },
+          "response": []
+        },
+        {
+          "name": "Get User Payments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/{{userId}}/payments",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "{{userId}}", "payments"]
+            },
+            "description": "Obtiene el historial de pagos de un usuario.\n\nPath:\n- `id` — UUID del usuario (`{{userId}}`)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Cards",
+      "item": [
+        {
+          "name": "Register Card",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const data = pm.response.json();",
+                  "  if (data.id) {",
+                  "    pm.collectionVariables.set('cardId', data.id);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario_id\": \"{{userId}}\",\n  \"titular\": \"Ana García\",\n  \"numero_tarjeta\": \"4111111111111111\",\n  \"fecha_expiracion\": \"12/28\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/cards",
+              "host": ["{{baseUrl}}"],
+              "path": ["cards"]
+            },
+            "description": "Registra una tarjeta ficticia asociada a un usuario.\n\nSolo se persisten titular, expiración y últimos 4 dígitos (PCI-DSS).\n\nBody:\n- `usuario_id` (UUID)\n- `titular` (string)\n- `numero_tarjeta` (13–19 dígitos; no se almacena completo)\n- `fecha_expiracion` (`YYYY-MM-DD`, `MM/YY` o `MM/YYYY`)\n\nGuarda automáticamente el `id` en la variable de colección `cardId`."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Payments",
+      "item": [
+        {
+          "name": "Create Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario_id\": \"{{userId}}\",\n  \"tarjeta_id\": \"{{cardId}}\",\n  \"monto\": 150.75\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/payments",
+              "host": ["{{baseUrl}}"],
+              "path": ["payments"]
+            },
+            "description": "Registra un pago.\n\nLa API consulta el microservicio Python (`POST /process-payment`), obtiene `APPROVED` o `REJECTED` (~80%/20%) y guarda el registro en PostgreSQL.\n\nBody:\n- `usuario_id` (UUID)\n- `tarjeta_id` (UUID; debe pertenecer al usuario)\n- `monto` (number > 0)"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
