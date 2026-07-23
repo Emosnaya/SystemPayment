@@ -1,0 +1,6 @@
+- Standard: Clean Code, SOLID principles, layered architecture (Controllers -> Services -> Repositories/Database).
+- Node.js API: Use TypeScript, Express/Fastify, Zod for schema validation, handling database transactions safely.
+- Python Microservice: Use Python 3.10+, FastAPI, type hints.
+- Database: PostgreSQL with raw SQL scripts or lightweight query builders. Use UUIDs for primary keys.
+- Error Handling: Global middleware for clean JSON error responses with proper HTTP status codes.
+- Security: Never store full credit card numbers in plaintext; save last 4 digits (`last_four`) for PCI-DSS compliance.
